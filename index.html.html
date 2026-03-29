@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>今晚吃什么 </title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* 让手绘感更纯粹，避免拖动文字 */
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Comic Neue', 'Chalkboard SE', 'Comic Sans MS', 'cursive', 'Patrick Hand', 'Marker Felt', sans-serif;
+            background: #f7efe2;
+            /* 手绘氛围噪点纹理 */
+            background-image: radial-gradient(#e2d5c0 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* 层级容器 */
+        .layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: opacity 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            opacity: 0;
+            visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: brightness(0.98) contrast(1.02);
+        }
+
+        .layer.active {
+            opacity: 1;
+            visibility: visible;
+            z-index: 10;
+        }
+
+        /* 手绘卡片容器 */
+        .speech-card {
+            background: rgba(255, 248, 225, 0.92);
+            padding: 1.2rem 2.2rem;
+            border-radius: 80px 80px 80px 40px;
+            box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0,0,0,0.1);
+            border: 3px solid #4b2e1a;
+            transform: rotate(-0.5deg);
+            backdrop-filter: blur(2px);
+            transition: transform 0.2s ease;
+            margin: 0 24px;
+            text-align: center;
+            max-width: 85vw;
+        }
+
+        .speech-card:hover {
+            transform: rotate(0.2deg) scale(1.01);
+        }
+
+        .main-text {
+            font-size: clamp(1.8rem, 7vw, 3.5rem);
+            font-weight: 800;
+            color: #3b2a1f;
+            text-shadow: 3px 3px 0 #f3d382;
+            letter-spacing: 2px;
+            word-break: keep-all;
+        }
+
+        /* 按钮组手绘风格 */
+        .button-group {
+            display: flex;
+            gap: 2.5rem;
+            margin-top: 2.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .hand-drawn-btn {
+            background: #fff5e6;
+            border: 3px solid #4e2e1a;
+            padding: 12px 32px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            font-family: inherit;
+            color: #2c1a0c;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 6px 6px 0px #b97f4b;
+            transition: all 0.08s linear;
+            min-width: 130px;
+            text-align: center;
+            backdrop-filter: blur(2px);
+            background-image: linear-gradient(145deg, #fff2e0, #ffe1c4);
+        }
+
+        .hand-drawn-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 2px 2px 0px #b97f4b;
+        }
+
+        /* yes 活泼色 */
+        .btn-yes {
+            background: #ffe0a3;
+            border-color: #aa7a3c;
+            color: #4e2c14;
+            box-shadow: 6px 6px 0 #c2924b;
+        }
+
+        .btn-no {
+            background: #ffe0c0;
+            border-color: #a5522a;
+            color: #642a12;
+            box-shadow: 6px 6px 0 #b45f34;
+            position: relative;
+        }
+
+        /* 重置小按钮，角落手绘风 */
+        .reset-corner {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 99;
+            background: #f3e3c9;
+            border: 2px solid #7b583c;
+            border-radius: 40px;
+            padding: 8px 18px;
+            font-size: 1rem;
+            font-weight: bold;
+            font-family: inherit;
+            color: #5c3a1e;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+            transition: 0.1s linear;
+            backdrop-filter: blur(8px);
+        }
+
+        .reset-corner:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+        }
+
+        /* 进入第二层提示小手 (第一层) */
+        .tap-hint {
+            margin-top: 2rem;
+            background: #f5e5cfaa;
+            backdrop-filter: blur(6px);
+            border-radius: 40px;
+            padding: 8px 22px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #6b3f1c;
+            border: 2px dashed #7b4a2a;
+            display: inline-block;
+        }
+
+        /* 克隆跟随的no (手绘小调皮) */
+        .clone-no {
+            position: fixed;
+            z-index: 9999;
+            cursor: grab;
+            filter: drop-shadow(4px 8px 8px rgba(0, 0, 0, 0.2));
+            transition: none;
+            pointer-events: none;  /* 让克隆无法被点击，原no隐藏后完全无法触发no行为 */
+            transform: rotate(1deg);
+            backdrop-filter: blur(4px);
+        }
+
+        /* 第三层附加愉快动画 */
+        .eating-animation {
+            animation: gentleSway 1.6s infinite ease-in-out;
+        }
+
+        @keyframes gentleSway {
+            0% { transform: rotate(0deg) translateY(0px);}
+            50% { transform: rotate(1deg) translateY(-6px);}
+            100% { transform: rotate(0deg) translateY(0px);}
+        }
+
+        /* 手绘涂鸦装饰线 */
+        .layer::before {
+            content: "";
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 100px;
+            height: 40px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 30"><path d="M5,15 Q20,5 35,15 T65,15 T95,15" stroke="%23a55d35" fill="none" stroke-width="2.5" stroke-dasharray="3 3"/></svg>');
+            background-repeat: no-repeat;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 640px) {
+            .hand-drawn-btn {
+                padding: 8px 20px;
+                font-size: 1.4rem;
+                min-width: 100px;
+            }
+            .button-group {
+                gap: 1.2rem;
+            }
+            .speech-card {
+                padding: 0.8rem 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 第一层 晚饭吃什么 -->
+    <div id="layer1" class="layer" style="background-image: url('https://pub-141831e61e69445289222976a15b6fb3.r2.dev/Image_to_url_V2/1-imagetourl.cloud-1774771916607-yucou9.jpg');">
+        <div class="speech-card">
+            <div class="main-text">今天晚饭吃什么？</div>
+        </div>
+        <div class="tap-hint">
+            点一下
+        </div>
+    </div>
+
+    <!-- 第二层 咖喱饭抉择 -->
+    <div id="layer2" class="layer" style="background-image: url('https://pub-141831e61e69445289222976a15b6fb3.r2.dev/Image_to_url_V2/2-imagetourl.cloud-1774772258775-rdpxra.jpg');">
+        <div class="speech-card">
+            <div class="main-text">晚饭吃咖喱饭吧</div>
+        </div>
+        <div class="button-group">
+            <div id="btnYes" class="hand-drawn-btn btn-yes">✔️ YES</div>
+            <div id="btnNo" class="hand-drawn-btn btn-no">✖️ NO</div>
+        </div>
+        <div style="margin-top: 20px; font-size: 0.85rem; background: #f1e7d9aa; padding: 4px 14px; border-radius: 99px; backdrop-filter: blur(4px);">
+        </div>
+    </div>
+
+    <!-- 第三层 享用咖喱 -->
+    <div id="layer3" class="layer" style="background-image: url('https://pub-141831e61e69445289222976a15b6fb3.r2.dev/Image_to_url_V2/3-imagetourl.cloud-1774772332772-sppldo.jpg');">
+        <div class="speech-card eating-animation">
+            <div class="main-text">享用咖喱饭中 ^~^ </div>
+        </div>
+        <div class="tap-hint" style="margin-top: 2rem; background: #efe0ccdd;">
+            再吃一顿？点击角落重置 
+        </div>
+    </div>
+
+    <!-- 全局重置小按钮 (手绘风格) -->
+    <div class="reset-corner" id="resetButton">✏️ 重新开饭 ✨</div>
+
+    <script>
+        // ---------- DOM 元素 ----------
+        const layer1 = document.getElementById('layer1');
+        const layer2 = document.getElementById('layer2');
+        const layer3 = document.getElementById('layer3');
+        const btnYes = document.getElementById('btnYes');
+        const btnNo = document.getElementById('btnNo');
+        const resetBtn = document.getElementById('resetButton');
+
+        // ---------- 第二层跟随克隆相关变量 ----------
+        let cloneElement = null;          // 克隆跟随节点
+        let followMouseHandler = null;    // mousemove 事件句柄
+        let isFollowingActive = false;    // 跟随模式是否激活
+        
+        // ---------- 辅助函数 ----------
+        // 清除跟随模式 (移除克隆、移除事件、恢复原始no按钮)
+        function clearNoFollowMode() {
+            if (cloneElement && cloneElement.parentNode) {
+                cloneElement.parentNode.removeChild(cloneElement);
+                cloneElement = null;
+            }
+            if (followMouseHandler) {
+                window.removeEventListener('mousemove', followMouseHandler);
+                followMouseHandler = null;
+            }
+            // 恢复原始no按钮可见 (之前可能被隐藏)
+            if (btnNo) {
+                btnNo.style.visibility = 'visible';
+                btnNo.style.display = '';     // 恢复原有display
+                // 确保其原本的样式完全复原，去掉任何内联隐藏
+                btnNo.style.opacity = '';
+            }
+            isFollowingActive = false;
+        }
+
+        // 重置第二层所有恶作剧状态 (当重新进入第二层时调用)
+        function resetSecondLayerState() {
+            clearNoFollowMode();
+            // 额外确保btnNo可见且没有被disabled样式影响
+            if (btnNo) {
+                btnNo.style.visibility = 'visible';
+                btnNo.style.display = 'flex';   // 按钮组是flex，恢复弹性
+                btnNo.style.opacity = '1';
+            }
+        }
+
+        // 创建克隆并开始跟随鼠标 (点击NO时触发)
+        function startNoFollowMode(event) {
+            // 防止重复激活 (如果已经有克隆在跟随，直接忽略，不重复生成)
+            if (isFollowingActive || cloneElement) {
+                return;
+            }
+            
+            // 阻止事件冒泡以免意外
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            // 获取原始no按钮的位置及尺寸、文本样式
+            const originalBtn = btnNo;
+            if (!originalBtn) return;
+            
+            // 获取当前按钮的bounding以及样式信息用于克隆
+            const rect = originalBtn.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(originalBtn);
+            
+            // 创建克隆节点
+            const cloneDiv = document.createElement('div');
+            cloneDiv.className = 'hand-drawn-btn btn-no clone-no';
+            cloneDiv.textContent = originalBtn.textContent; // "✖️ NO"
+            
+            // 复制关键样式确保完全一致手绘感
+            cloneDiv.style.position = 'fixed';
+            cloneDiv.style.left = rect.left + 'px';
+            cloneDiv.style.top = rect.top + 'px';
+            cloneDiv.style.width = rect.width + 'px';
+            cloneDiv.style.height = rect.height + 'px';
+            cloneDiv.style.margin = '0';
+            cloneDiv.style.padding = computedStyle.padding;
+            cloneDiv.style.fontSize = computedStyle.fontSize;
+            cloneDiv.style.fontWeight = computedStyle.fontWeight;
+            cloneDiv.style.border = computedStyle.border;
+            cloneDiv.style.borderRadius = computedStyle.borderRadius;
+            cloneDiv.style.backgroundColor = computedStyle.backgroundColor;
+            cloneDiv.style.backgroundImage = computedStyle.backgroundImage;
+            cloneDiv.style.boxShadow = computedStyle.boxShadow;
+            cloneDiv.style.lineHeight = computedStyle.lineHeight;
+            cloneDiv.style.display = 'flex';
+            cloneDiv.style.alignItems = 'center';
+            cloneDiv.style.justifyContent = 'center';
+            cloneDiv.style.zIndex = '99999';
+            cloneDiv.style.pointerEvents = 'none';   // 完全无法点击，确保用户点不到克隆，原no已经隐藏不可点，实现无法点击no
+            cloneDiv.style.transform = 'rotate(1deg)';
+            cloneDiv.style.transition = 'none';
+            
+            // 加入到body
+            document.body.appendChild(cloneDiv);
+            cloneElement = cloneDiv;
+            
+            // 隐藏原始的NO按钮 (保留占位空间让布局不抖动)
+            originalBtn.style.visibility = 'hidden';
+            // 保留占位但隐藏内容，原位置依然占位所以yes按钮位置不会移动
+            originalBtn.style.display = 'flex';  // 维持flex占位
+            
+            isFollowingActive = true;
+            
+            // 定义鼠标移动时的更新函数
+            const onMouseMove = (e) => {
+                if (!cloneElement) return;
+                // 获取鼠标坐标
+                let mouseX = e.clientX;
+                let mouseY = e.clientY;
+                // 让克隆的中心跟随鼠标，但又稍微偏移产生调皮感（偏移量可让按钮偏左上一点点，更方便看到选项跟着光标）
+                const btnWidth = cloneElement.offsetWidth;
+                const btnHeight = cloneElement.offsetHeight;
+                let newLeft = mouseX - btnWidth / 2;
+                let newTop = mouseY - btnHeight / 2;
+                
+                // 边缘限制，不要跑出可视区域太离谱
+                const maxX = window.innerWidth - btnWidth;
+                const maxY = window.innerHeight - btnHeight;
+                newLeft = Math.min(Math.max(0, newLeft), maxX);
+                newTop = Math.min(Math.max(0, newTop), maxY);
+                
+                cloneElement.style.left = newLeft + 'px';
+                cloneElement.style.top = newTop + 'px';
+            };
+            
+            followMouseHandler = onMouseMove;
+            window.addEventListener('mousemove', followMouseHandler);
+            
+            // 可选：触发一次位置刷新 (保证初始鼠标位置与克隆重合)
+            if (event && event.clientX) {
+                const evt = event;
+                const btnWidth = cloneElement.offsetWidth;
+                const btnHeight = cloneElement.offsetHeight;
+                let newLeft = evt.clientX - btnWidth / 2;
+                let newTop = evt.clientY - btnHeight / 2;
+                const maxX = window.innerWidth - btnWidth;
+                const maxY = window.innerHeight - btnHeight;
+                newLeft = Math.min(Math.max(0, newLeft), maxX);
+                newTop = Math.min(Math.max(0, newTop), maxY);
+                cloneElement.style.left = newLeft + 'px';
+                cloneElement.style.top = newTop + 'px';
+            } else {
+                // 没有鼠标位置时沿用原位置
+                const rectNow = originalBtn.getBoundingClientRect();
+                cloneElement.style.left = rectNow.left + 'px';
+                cloneElement.style.top = rectNow.top + 'px';
+            }
+        }
+
+        // ---------- 层级切换逻辑 ----------
+        let currentLayer = 1; // 1,2,3
+        
+        function showLayer(layerNum) {
+            // 先清除第二层的跟随模式（每次离开第二层都要重置，避免残留）
+            if (currentLayer === 2 && layerNum !== 2) {
+                clearNoFollowMode();
+            }
+            // 如果即将展示第二层，彻底重置第二层的交互状态（保证no可见，无克隆）
+            if (layerNum === 2) {
+                resetSecondLayerState();
+            }
+            
+            layer1.classList.remove('active');
+            layer2.classList.remove('active');
+            layer3.classList.remove('active');
+            
+            if (layerNum === 1) {
+                layer1.classList.add('active');
+                currentLayer = 1;
+            } else if (layerNum === 2) {
+                layer2.classList.add('active');
+                currentLayer = 2;
+            } else if (layerNum === 3) {
+                layer3.classList.add('active');
+                currentLayer = 3;
+            }
+        }
+        
+        // 从第一层进入第二层 (点击第一层任何区域)
+        function goToSecondLayer() {
+            if (currentLayer === 1) {
+                // 重置第二层状态，确保新的开始
+                resetSecondLayerState();
+                showLayer(2);
+            }
+        }
+        
+        // YES按钮处理: 进入第三层
+        function onYesClick(e) {
+            e.stopPropagation();
+            if (currentLayer !== 2) return;
+            // 点击yes之前，清理no跟随模式，以免第三层还残留克隆体
+            clearNoFollowMode();
+            // 进入第三层
+            showLayer(3);
+        }
+        
+        // NO按钮处理: 启动跟随恶作剧 (实现选项跟着光标移动，并且无法点击no)
+        function onNoClick(e) {
+            e.stopPropagation();
+            if (currentLayer !== 2) return;
+            // 启动跟随模式 (如果跟随未激活则开始调皮)
+            if (!isFollowingActive) {
+                startNoFollowMode(e);
+            } else {
+                // 若已经激活跟随, 再次点击无效, 但已经逃走了~
+                // 为了趣味，可以轻轻抖一下克隆（可选但不必，但什么也不做也符合逻辑）
+                // 但是为了体验完全无法点击no，第二次点击仍然没有no的效果，因为原no隐藏+克隆穿透
+            }
+        }
+        
+        // 重置按钮: 一键回到第一层，并且清空所有跟随状态，重置所有层级的脏数据
+        function fullReset() {
+            // 清除跟随模式（如果有）
+            clearNoFollowMode();
+            // 确保第二层no恢复原样 (重置其可见样式)
+            if (btnNo) {
+                btnNo.style.visibility = 'visible';
+                btnNo.style.display = 'flex';
+            }
+            // 重置是否跟随标志
+            isFollowingActive = false;
+            // 切回第一层
+            showLayer(1);
+        }
+        
+        // ---------- 第一层点击区域 (监听整个第一层，但不干扰内部重置按钮) ----------
+        layer1.addEventListener('click', (e) => {
+            // 避免点到重置按钮冒泡触发两次, 但重置按钮有自己的独立事件
+            if (e.target === resetBtn || resetBtn.contains(e.target)) return;
+            goToSecondLayer();
+        });
+        
+        // 第二层按钮绑定事件
+        btnYes.addEventListener('click', onYesClick);
+        btnNo.addEventListener('click', onNoClick);
+        
+        // 重置按钮事件
+        resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fullReset();
+        });
+        
+        // 第三层如果用户点击重置是一样的，所以无需额外添加,重置已经可用
+        // 另外由于第三层没有no逻辑，所以不用特别处理
+        
+        // 辅助：在第二层激活时，如果因为某些窗口resize导致克隆位置诡异，跟随模式能自适应，但因为跟随基于鼠标移动所以无关紧要
+        // 如果第二层未激活时，点击重置确保清除所有状态
+        
+        // 当窗口大小变化时，如果跟随模式激活，我们不需要做额外调整，因为鼠标移动会实时更新位置；
+        // 但如果没移动鼠标时，窗口变化，克隆会错位，可简单在resize时重新基于鼠标最新位置刷新？但通常没什么影响，为了优雅，可以重置一次位置
+        // 优化：监听resize，如果跟随模式激活，暂时取消跟随？但为了体验，当resize时取消跟随模式会让no复位更合理，免得克隆飞出边界，
+        // 为了严谨，resize时清除跟随模式并恢复no按钮，让用户重新点击no再调皮（不破坏游戏性）
+        window.addEventListener('resize', () => {
+            if (currentLayer === 2 && isFollowingActive) {
+                // 如果跟随模式激活，窗口大小改变可能导致克隆错位，干脆礼貌性重置跟随模式，用户想玩可以再点NO
+                clearNoFollowMode();
+                // 同时确保原no可见且状态恢复
+                if (btnNo) {
+                    btnNo.style.visibility = 'visible';
+                }
+                isFollowingActive = false;
+            }
+        });
+        
+        // 额外保护: 当通过浏览器后退等异常，保证第二层跟随清理干净 (无额外操作)
+        // 初始化显示第一层
+        showLayer(1);
+        
+        // 优雅的手绘风格光标效果
+        const styleCursor = document.createElement('style');
+        styleCursor.textContent = `
+            body {
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="%238b5a2b" d="M5 3 L19 12 L12 13 L8 20 L5 3Z" stroke="%23f3c969" stroke-width="1"/></svg>') 4 4, auto;
+            }
+            button, .hand-drawn-btn, .reset-corner {
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%23ffcd94" stroke="%238b4513" stroke-width="1.5"/><path d="M8 8 L16 16 M16 8 L8 16" stroke="%238b4513" stroke-width="1.8"/></svg>') 12 12, pointer;
+            }
+        `;
+        document.head.appendChild(styleCursor);
+        
+        // 为了强调手绘感，为每个卡片添加轻微的手绘描边动画（只在激活层显示）
+        // 一个小细节: 点击第一层提示，让用户知道可以进入第二层
+        console.log("🍛 手绘食堂开张！点击NO试试看～");
+    </script>
+</body>
+</html>
